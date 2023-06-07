@@ -16,7 +16,7 @@ class SToken(
     }
 
     override fun toString(): String {
-        return "SToken(type=$type, text='$text')"
+        return "[$type : $text]"
     }
 
     /*

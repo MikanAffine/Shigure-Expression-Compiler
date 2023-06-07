@@ -4,10 +4,10 @@ import org.owari.shigure.Shigure
 
 object BuiltinFunctions {
     @JvmStatic
-    val VERSION: ArithmeticFunction = { Shigure.version }
+    val ZERO: ArithmeticFunction = { 0.0 }
 
     @JvmStatic
-    val table = hashMapOf<String, ArithmeticFunction>(
-        "version" to VERSION,
+    val table = hashMapOf(
+        "zero" to ZERO,
     )
 }
