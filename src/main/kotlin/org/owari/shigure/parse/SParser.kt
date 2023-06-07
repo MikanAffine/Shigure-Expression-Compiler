@@ -17,81 +17,111 @@ import org.owari.shigure.tokenize.STokenType
  * Var ::= [\u4e00-\u9fff$_a-zA-Z] [\u4e00-\u9fff$_a-zA-Z0-9]*
  *
  * parser rules (start with lowercase, as to identify Non-Terminals):
- * AddSub ::= MulDiv (('+' | '-') AddSub)?
- * MulDivMod ::= Unary (('*' | '//' | '/' | '%') MulDivMod)?
+ * AddSub ::= MulDivMod | AddSub ('+' | '-') MulDivMod
+ * MulDivMod ::= Power | MulDivMod ('*' | '//' | '/' | '%') Power
  * // Power 运算是右结合的, 最终 codegen 之后会先执行最右边的 Power 运算, 然后再向左执行.
- * Power ::= Unary ('^' Power)?
+ * Power ::= Unary | Unary '^' Power // <right-assoc>
  * Unary ::= ('+' | '-')? Primary
  * Primary ::= '(' AddSub ')' | Number | Var | FnCall
  * FnCall ::= FnName AddSub (',' AddSub)*  ')'
  */
-object SParser {
-    @JvmStatic
-    fun parse(tks: STokenStream): SExprNode {
-        return parseAddSub(tks)
+class SParser(private val tks: STokenStream) {
+    val result by lazy(this::parse)
+
+    private val usedVars = mutableSetOf<String>()
+    private val usedFns = mutableSetOf<String>()
+
+    fun parse(): SRootNode {
+        return SRootNode(parseAddSub(), usedVars.toList(), usedFns.toList())
     }
 
-    @JvmStatic
-    private fun parseAddSub(tks: STokenStream) : SExprNode {
-        val lhs = parseMulDivMod(tks)
-        return when {
-            tks.testAndSkip(STokenType.ADD) -> SBinaryExprNode(SExprOperator.ADD, lhs, parseAddSub(tks))
-            tks.testAndSkip(STokenType.SUB) -> SBinaryExprNode(SExprOperator.SUB, lhs, parseAddSub(tks))
-            else -> lhs
+    /**
+     * 解析加减运算
+     * 作为左结合的运算符, 1 + 2 - 3 解析后应当为
+     * sub(add(1, 2), 3)
+     * 形象化表示为
+     *     -
+     *    /\
+     *   + 3
+     *  /\
+     * 1 2
+     */
+    private fun parseAddSub(): SExprNode {
+        val lhs = parseMulDivMod()
+        var result = lhs
+        while(tks.test(STokenType.ADD) || tks.test(STokenType.SUB)) {
+            val op = when {
+                tks.testAndSkip(STokenType.ADD) -> SExprOperator.ADD
+                tks.testAndSkip(STokenType.SUB) -> SExprOperator.SUB
+                else -> throw RuntimeException("unreachable")
+            }
+            val rhs = parseMulDivMod()
+            result = SBinaryExprNode(op, result, rhs)
         }
+        return result
     }
 
-    @JvmStatic
-    private fun parseMulDivMod(tks: STokenStream) : SExprNode {
-        val lhs = parsePower(tks)
-        return when {
-            tks.testAndSkip(STokenType.MUL) -> SBinaryExprNode(SExprOperator.MUL, lhs, parseMulDivMod(tks))
-            tks.testAndSkip(STokenType.DIV) -> SBinaryExprNode(SExprOperator.DIV, lhs, parseMulDivMod(tks))
-            tks.testAndSkip(STokenType.MOD) -> SBinaryExprNode(SExprOperator.MOD, lhs, parseMulDivMod(tks))
-            tks.testAndSkip(STokenType.DIVFLOOR) -> SBinaryExprNode(SExprOperator.DIVFLOOR, lhs, parseMulDivMod(tks))
-            else -> lhs
+    private fun parseMulDivMod(): SExprNode {
+        val lhs = parsePower()
+        var result = lhs
+        while(tks.test(STokenType.MUL) || tks.test(STokenType.DIV) || tks.test(STokenType.DIVFLOOR) || tks.test(STokenType.MOD)) {
+            val op = when {
+                tks.testAndSkip(STokenType.MUL) -> SExprOperator.MUL
+                tks.testAndSkip(STokenType.DIV) -> SExprOperator.DIV
+                tks.testAndSkip(STokenType.DIVFLOOR) -> SExprOperator.DIVFLOOR
+                tks.testAndSkip(STokenType.MOD) -> SExprOperator.MOD
+                else -> throw RuntimeException("unreachable")
+            }
+            val rhs = parsePower()
+            result = SBinaryExprNode(op, result, rhs)
         }
+        return result
     }
 
-    @JvmStatic
-    private fun parsePower(tks: STokenStream) : SExprNode {
-        val lhs = parseUnary(tks)
-        return if (tks.testAndSkip(STokenType.POW)) SBinaryExprNode(SExprOperator.POW, lhs, parsePower(tks))
+    private fun parsePower(): SExprNode {
+        val lhs = parseUnary()
+        return if (tks.testAndSkip(STokenType.POW)) SBinaryExprNode(SExprOperator.POW, lhs, parsePower())
         else lhs
     }
 
-    @JvmStatic
-    private fun parseUnary(tks: STokenStream) : SExprNode {
+    /**
+     * 解析一元运算
+     * 对任何一个值, 只能用一次一元加减, 因为多次是不必要的.
+     */
+    private fun parseUnary(): SExprNode {
         return when {
-            tks.testAndSkip(STokenType.ADD) -> SUnaryExprNode(SExprOperator.ADD, parseUnary(tks))
-            tks.testAndSkip(STokenType.SUB) -> SUnaryExprNode(SExprOperator.SUB, parseUnary(tks))
-            else -> parsePrimary(tks)
+            // tks.testAndSkip(STokenType.ADD) -> SUnaryExprNode(SExprOperator.ADD, parsePrimary())
+            tks.testAndSkip(STokenType.ADD) -> parsePrimary() // 一元加是没有意义的, 直接跳过
+            tks.testAndSkip(STokenType.SUB) -> SUnaryExprNode(SExprOperator.SUB, parsePrimary())
+            else -> parsePrimary()
         }
     }
 
-    @JvmStatic
-    private fun parsePrimary(tks: STokenStream) : SExprNode {
+    private fun parsePrimary(): SExprNode {
         return when {
             tks.testAndSkip(STokenType.LPAREN) -> {
-                val expr = parseAddSub(tks)
+                val expr = parseAddSub()
                 tks.expect(STokenType.RPAREN)
                 expr
             }
             tks.test(STokenType.NUMBER) -> SConstNumNode(tks.expect(STokenType.NUMBER).text)
-            tks.test(STokenType.ID) -> SVarAccessNode(tks.expect(STokenType.ID).text)
-            tks.test(STokenType.FNCALL) -> parseFnCall(tks)
+            tks.test(STokenType.ID) -> {
+                usedVars.add(tks.peek().text)
+                SVarAccessNode(tks.expect(STokenType.ID).text)
+            }
+            tks.test(STokenType.FNCALL) -> parseFnCall()
             else -> throw IllegalStateException("Unexpected Token: ${tks.peek()}")
         }
     }
 
-    @JvmStatic
-    private fun parseFnCall(tks: STokenStream) : SFnCallNode {
+    private fun parseFnCall(): SFnCallNode {
         val name = tks.expect(STokenType.FNCALL).text
         val args = arrayListOf<SExprNode>()
         tks.expect(STokenType.LPAREN)
-        if(tks.test(STokenType.RPAREN)) return SFnCallNode(name, args)
-        do args.add(parseAddSub(tks)) while (tks.testAndSkip(STokenType.COMMA))
+        if (tks.test(STokenType.RPAREN)) return SFnCallNode(name, args)
+        do args.add(parseAddSub()) while (tks.testAndSkip(STokenType.COMMA))
         tks.expect(STokenType.RPAREN)
+        usedFns.add(name)
         return SFnCallNode(name, args)
     }
 }

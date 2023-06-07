@@ -2,6 +2,12 @@ package org.owari.shigure.ast
 
 sealed class SExprNode
 
+class SRootNode(
+    val expr: SExprNode,
+    val usedVars: List<String>,
+    val usedFns: List<String>,
+) : SExprNode()
+
 object SExprOperator {
     const val ADD = 0
     const val SUB = 1

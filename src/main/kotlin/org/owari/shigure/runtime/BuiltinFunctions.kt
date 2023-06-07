@@ -4,7 +4,7 @@ import org.owari.shigure.Shigure
 
 object BuiltinFunctions {
     @JvmStatic
-    val ZERO: ArithmeticFunction = { 0.0 }
+    val ZERO = { 0.0 } as ArithmeticFunction
 
     @JvmStatic
     val table = hashMapOf(
