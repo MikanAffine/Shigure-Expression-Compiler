@@ -9,6 +9,9 @@ object Shigure {
     fun eval(source: String) = SExpression(source).eval(SContext())
 
     @JvmStatic
+    fun eval(source: String, ctx: SContext) = SExpression(source).eval(ctx)
+
+    @JvmStatic
     fun createExpr(source: String) = SExpression(source)
 
     @JvmStatic

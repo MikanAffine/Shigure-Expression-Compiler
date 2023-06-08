@@ -6,6 +6,7 @@ import org.owari.shigure.SContext
 import org.owari.shigure.Shigure
 import org.owari.shigure.codegen.SCodeGenerator
 import org.owari.shigure.parse.SParser
+import org.owari.shigure.runtime.SASTEvaluator
 import org.owari.shigure.tokenize.STokenizer
 import kotlin.math.*
 
@@ -55,6 +56,21 @@ object Benchmarks {
     }
 
     @Test
+    @DisplayName("Benchmark - JITEval")
+    fun directEval() {
+        repeat(1_000_000) {
+            Shigure.eval(complexExpr, ctx)
+        }
+
+        val start = System.currentTimeMillis()
+        repeat(1_000_000) {
+            Shigure.eval(complexExpr, ctx)
+        }
+        val end = System.currentTimeMillis()
+        println("JITEval: Elapsed time: ${end - start}ms")
+    }
+
+    @Test
     @DisplayName("Benchmark - Tokenizer")
     fun tokenizer() {
         val tkz = STokenizer(complexExpr)
@@ -90,9 +106,16 @@ object Benchmarks {
     @Test
     @DisplayName("Benchmark - ASTInterpreter")
     fun astInterpreter() {
-        return
+        val tkz = STokenizer(complexExpr)
+        val parser = SParser(tkz.tokenizeAll())
+        val evaluator = SASTEvaluator(parser.parse())
+        repeat(1_000_000) {
+            evaluator.eval(ctx)
+        }
         val start = System.currentTimeMillis()
-
+        repeat(1_000_000) {
+            evaluator.eval(ctx)
+        }
         val end = System.currentTimeMillis()
         println("ASTInterpreter: Elapsed time: ${end - start}ms")
     }
@@ -155,17 +178,88 @@ object Benchmarks {
 
     // 在有 LoadClass 的情况下仍然做 1M 的测试是不合理的. 大部分时间都放在 gc 上了
     @Test
-    @DisplayName("Benchmark - FullCompile 10K with LoadClass")
-    fun fullCompileWithLoadClass() {
+    @DisplayName("Benchmark - FullCompileEval 10K")
+    fun fullCompile10K() {
         repeat(10_000) {
-            Shigure.compile(complexExpr)
+            Shigure.compile(complexExpr).eval(ctx)
         }
 
         val start = System.currentTimeMillis()
         repeat(10_000) {
-            Shigure.compile(complexExpr)
+            Shigure.compile(complexExpr).eval(ctx)
         }
         val end = System.currentTimeMillis()
-        println("FullCompile 1K with LoadClass: Elapsed time: ${end - start}ms")
+        println("FullCompileEval 10K: Elapsed time: ${end - start}ms")
+    }
+
+    @Test
+    @DisplayName("Benchmark - NoCompileEval 10K")
+    fun noJIT10K() {
+        run {
+            val tkz = STokenizer(complexExpr)
+            val parser = SParser(tkz.tokenizeAll())
+            val evaluator = SASTEvaluator(parser.parse())
+            repeat(10_000) {
+                evaluator.eval(ctx)
+            }
+        }
+
+        val start = System.currentTimeMillis()
+        run {
+            val tkz = STokenizer(complexExpr)
+            val parser = SParser(tkz.tokenizeAll())
+            val evaluator = SASTEvaluator(parser.parse())
+            repeat(10_000) {
+                evaluator.eval(ctx)
+            }
+        }
+        val end = System.currentTimeMillis()
+        println("NoCompileEval 10K: Elapsed time: ${end - start}ms")
+    }
+
+    @Test
+    @DisplayName("Benchmark - FullCompileEval 1K * 10K")
+    fun fullCompile100K() {
+        repeat(1_000) {
+            val expr = Shigure.compile(complexExpr)
+            repeat(10_000) {
+                expr.eval(ctx)
+            }
+        }
+
+        val start = System.currentTimeMillis()
+        repeat(1_000) {
+            val expr = Shigure.compile(complexExpr)
+            repeat(10_000) {
+                expr.eval(ctx)
+            }
+        }
+        val end = System.currentTimeMillis()
+        println("FullCompile 1K * 10K: Elapsed time: ${end - start}ms")
+    }
+
+    @Test
+    @DisplayName("Benchmark - NoCompileEval 1K * 10K")
+    fun noCompile100K() {
+        repeat(1_000) {
+            val tkz = STokenizer(complexExpr)
+            val parser = SParser(tkz.tokenizeAll())
+            val evaluator = SASTEvaluator(parser.parse())
+            repeat(10_000) {
+                evaluator.eval(ctx)
+            }
+        }
+
+        val start = System.currentTimeMillis()
+        repeat(1_000) {
+            val tkz = STokenizer(complexExpr)
+            val parser = SParser(tkz.tokenizeAll())
+            val evaluator = SASTEvaluator(parser.parse())
+            repeat(10_000) {
+                evaluator.eval(ctx)
+            }
+        }
+        val end = System.currentTimeMillis()
+        println("NoCompileEval 1K * 10K: Elapsed time: ${end - start}ms")
     }
 }
