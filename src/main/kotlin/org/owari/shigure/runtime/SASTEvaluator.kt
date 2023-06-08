@@ -8,7 +8,7 @@ import kotlin.math.pow
 class SASTEvaluator(val tree: SRootNode) {
     fun eval(ctx: SContext): Double = evalNode(tree, ctx)
 
-    private  fun evalNode(n: SExprNode, ctx: SContext): Double = when (n) {
+    private tailrec fun evalNode(n: SExprNode, ctx: SContext): Double = when (n) {
         is SRootNode -> evalNode(n.expr, ctx)
         is SConstNumNode -> n.value.toDouble()
         is SVarAccessNode -> ctx.getVar(n.name)
