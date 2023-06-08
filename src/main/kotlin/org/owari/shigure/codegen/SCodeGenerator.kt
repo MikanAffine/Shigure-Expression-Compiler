@@ -1,12 +1,12 @@
 package org.owari.shigure.codegen
 
+import org.objectweb.asm.*
 import org.owari.shigure.SExprImpl
 
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Opcodes
 import org.owari.shigure.Shigure
 import org.owari.shigure.ast.*
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 private object SExprClassLoader : ClassLoader(Shigure.javaClass.classLoader) {
     fun define(name: String, code: ByteArray): Class<*> = defineClass(name, code, 0, code.size)
@@ -21,13 +21,14 @@ class SCodeGenerator(val ast: SRootNode) {
 
     companion object {
         @JvmStatic
-        private val id = AtomicInteger(0)
+        private val id = AtomicLong(0)
     }
     
     private val clazzId = id.getAndIncrement()
     private val clazzFileName = "org/owari/shigure/generated/SExprImpl\$$clazzId"
     private val clazzName = "org.owari.shigure.generated.SExprImpl\$$clazzId"
     private val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
+    private val clazzCode by lazy { generateCode() }
 
     init {
         cw.visit(
@@ -58,11 +59,16 @@ class SCodeGenerator(val ast: SRootNode) {
     private inline fun fnAddress(i: Int) = exprFnOffset + i
     private inline fun fnAddress(s: String) = fnAddress(ast.usedFns.indexOf(s))
 
-    private inline fun generate(): SExprImpl {
+    fun generate(): SExprImpl {
+        generateCode()
+        return assembly()
+    }
+
+    fun generateCode(): ByteArray {
         emitPrologue()
         emit(ast)
         emitEpilogue()
-        return assembly()
+        return cw.toByteArray()
     }
 
     private inline fun emitPrologue() {
@@ -74,7 +80,7 @@ class SCodeGenerator(val ast: SRootNode) {
             mw.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
                 "org/owari/shigure/SContext",
-                "getVariable",
+                "getVar",
                 "(Ljava/lang/String;)D",
                 false
             ) // get variable from SContext
@@ -86,8 +92,8 @@ class SCodeGenerator(val ast: SRootNode) {
             mw.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
                 "org/owari/shigure/SContext",
-                "getFunction",
-                "(Ljava/lang/String;)Lorg/owari/shigure/SFunction;",
+                "getFn",
+                "(Ljava/lang/String;)Lorg/owari/shigure/runtime/ArithmeticFunction;",
                 false
             ) // get function from SContext
             mw.visitVarInsn(Opcodes.ASTORE, fnAddress(it)) // store function into local
@@ -179,10 +185,11 @@ class SCodeGenerator(val ast: SRootNode) {
     }
 
     private fun emit(e: SConstNumNode) {
-        mw.visitLdcInsn(e.value)
+        mw.visitLdcInsn(e.value.toDouble())
     }
 
     private fun emit(e: SFnCallNode) {
+        mw.visitVarInsn(Opcodes.ALOAD, fnAddress(e.name))
         mw.visitIntInsn(Opcodes.BIPUSH, e.args.size)
         mw.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE)
         e.args.forEachIndexed { i, it ->
@@ -201,8 +208,7 @@ class SCodeGenerator(val ast: SRootNode) {
     }
 
     private fun assembly(): SExprImpl {
-        val ba = cw.toByteArray()
-        val clazz = SExprClassLoader.define(clazzName, ba)
+        val clazz = SExprClassLoader.define(clazzName, clazzCode)
         assert(SExprImpl::class.java.isAssignableFrom(clazz))
         return clazz.getDeclaredConstructor().newInstance() as SExprImpl
     }

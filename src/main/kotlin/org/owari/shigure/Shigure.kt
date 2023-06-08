@@ -6,12 +6,11 @@ package org.owari.shigure
  */
 object Shigure {
     @JvmStatic
-    fun eval(source: String): Double {
-        TODO()
-    }
+    fun eval(source: String) = SExpression(source).eval(SContext())
 
     @JvmStatic
-    fun compile(source: String) {
-        TODO()
-    }
+    fun createExpr(source: String) = SExpression(source)
+
+    @JvmStatic
+    fun compile(source: String) = SExpression(source).also(SExpression::compileNow)
 }

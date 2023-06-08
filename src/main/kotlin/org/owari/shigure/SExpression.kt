@@ -15,6 +15,10 @@ class SExpression(
 
     fun eval(ctx: SContext): Double = impl.eval(ctx)
     override operator fun invoke(p1: SContext) = eval(p1)
+    fun eval() = impl.eval(SContext())
+    fun evalWith(vararg vars: Pair<String, Double>): Double = impl.eval(SContext.of(*vars))
+
+    fun compileNow() { this.impl }
 }
 
 abstract class SExprImpl {

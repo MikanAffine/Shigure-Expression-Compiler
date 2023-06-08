@@ -32,6 +32,7 @@ class SParser(private val tks: STokenStream) {
     private val usedFns = mutableSetOf<String>()
 
     fun parse(): SRootNode {
+        tks.reset()
         return SRootNode(parseAddSub(), usedVars.toList(), usedFns.toList())
     }
 
