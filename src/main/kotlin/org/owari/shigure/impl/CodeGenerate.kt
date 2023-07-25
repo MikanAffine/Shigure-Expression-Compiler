@@ -1,22 +1,18 @@
-package org.owari.shigure.codegen
+package org.owari.shigure.impl
 
 import org.objectweb.asm.*
-import org.owari.shigure.SExprImpl
 
 import org.owari.shigure.Shigure
-import org.owari.shigure.ast.*
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-
-private object SExprClassLoader : ClassLoader(Shigure.javaClass.classLoader) {
-    fun define(name: String, code: ByteArray): Class<*> = defineClass(name, code, 0, code.size)
-}
 
 /**
  * @author Mochizuki Haruka
  * codeGenerator 的默认实现.
  */
-class SCodeGenerator(val ast: SRootNode) {
+class CodeGenerator(
+    private val ast: SyntaxTree,
+    private val assembler: Assembler
+) {
     val result by lazy(this::generate)
 
     companion object {
@@ -25,10 +21,9 @@ class SCodeGenerator(val ast: SRootNode) {
     }
     
     private val clazzId = id.getAndIncrement()
-    private val clazzFileName = "org/owari/shigure/generated/SExprImpl\$$clazzId"
-    private val clazzName = "org.owari.shigure.generated.SExprImpl\$$clazzId"
+    private val clazzName = "org.owari.shigure.generated.ExpressionImpl\$$clazzId"
+    private val clazzFileName = clazzName.replace('.', '/')
     private val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
-    private val clazzCode by lazy { generateCode() }
 
     init {
         cw.visit(
@@ -51,20 +46,17 @@ class SCodeGenerator(val ast: SRootNode) {
     private val mw =
         cw.visitMethod(Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL, "eval", "(Lorg/owari/shigure/SContext;)D", null, null)
 
-    // local[0] = this, local[1] = SContext, local[i..j] = variables, local[j+1..k] = functions
-    private val exprVarOffset = 2
-    private val exprFnOffset = exprVarOffset + ast.usedVars.size * 2
-    private inline fun varAddress(i: Int) = exprVarOffset + i * 2
-    private inline fun varAddress(s: String) = varAddress(ast.usedVars.indexOf(s))
-    private inline fun fnAddress(i: Int) = exprFnOffset + i
-    private inline fun fnAddress(s: String) = fnAddress(ast.usedFns.indexOf(s))
-
-    fun generate(): SExprImpl {
-        generateCode()
-        return assembly()
+    // local[0] = this, local[1] = Context object, local[i..j] = variables
+    private val varSize = 2
+    private var currentOffset = 2
+    private val varMap = hashMapOf<String, Int>()
+    private fun newVar(name: String): Int {
+        varMap[name] = currentOffset
+        return currentOffset.also { currentOffset += varSize }
     }
+    private fun address(name: String): Int = varMap[name] ?: newVar(name)
 
-    fun generateCode(): ByteArray {
+    fun generate(): ByteArray {
         emitPrologue()
         emit(ast)
         emitEpilogue()
@@ -168,7 +160,7 @@ class SCodeGenerator(val ast: SRootNode) {
                 mw.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "pow", "(DD)D", false)
             }
 
-            SExprOperator.DIVFLOOR -> {
+            SExprOperator.FLOORDIV -> {
                 emit(e.lhs)
                 emit(e.lhs)
                 mw.visitInsn(Opcodes.DDIV)
@@ -179,9 +171,7 @@ class SCodeGenerator(val ast: SRootNode) {
     }
 
     private fun emit(e: SVarAccessNode) {
-        val index = varAddress(e.name)
-        assert(index != -1)
-        mw.visitVarInsn(Opcodes.DLOAD, index)
+        mw.visitVarInsn(Opcodes.DLOAD, address(e.name))
     }
 
     private fun emit(e: SConstNumNode) {
@@ -205,11 +195,5 @@ class SCodeGenerator(val ast: SRootNode) {
             "([D)D",
             true
         )
-    }
-
-    private fun assembly(): SExprImpl {
-        val clazz = SExprClassLoader.define(clazzName, clazzCode)
-        assert(SExprImpl::class.java.isAssignableFrom(clazz))
-        return clazz.getDeclaredConstructor().newInstance() as SExprImpl
     }
 }

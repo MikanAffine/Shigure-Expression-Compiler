@@ -1,19 +1,21 @@
 package org.owari.shigure
 
+import org.owari.shigure.impl.ContextImpl
+
 /**
  * @author Mochizuki Haruka
  * 使用 Shigure 的主要接口
  */
 object Shigure {
     @JvmStatic
-    fun eval(source: String) = SExpression(source).eval(SContext())
+    fun eval(source: String) = SimpleExpression(source).eval(ContextImpl())
 
     @JvmStatic
-    fun eval(source: String, ctx: SContext) = SExpression(source).eval(ctx)
+    fun eval(source: String, ctx: ContextImpl) = SimpleExpression(source).eval(ctx)
 
     @JvmStatic
-    fun createExpr(source: String) = SExpression(source)
+    fun createExpr(source: String) = SimpleExpression(source)
 
     @JvmStatic
-    fun compile(source: String) = SExpression(source).also(SExpression::compileNow)
+    fun compile(source: String) = SimpleExpression(source).also(SimpleExpression::compileNow)
 }

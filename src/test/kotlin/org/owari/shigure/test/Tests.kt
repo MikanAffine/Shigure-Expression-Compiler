@@ -2,12 +2,12 @@ package org.owari.shigure.test
 
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import org.owari.shigure.SContext
+import org.owari.shigure.impl.ContextImpl
 import org.owari.shigure.Shigure
-import org.owari.shigure.codegen.SCodeGenerator
-import org.owari.shigure.parse.SParser
+import org.owari.shigure.impl.CodeGenerator
+import org.owari.shigure.impl.Parser
 
-import org.owari.shigure.tokenize.STokenizer
+import org.owari.shigure.impl.ActiveTokenizer
 import kotlin.math.*
 
 object Tests {
@@ -15,34 +15,34 @@ object Tests {
     @DisplayName("Test - Tokenizer")
     fun testTokenizer() {
         val str = "1 + a * 3.3 ^ 中文变量 // 32 - log2(4.0, c6\$_) % ハルカ"
-        val tokens = STokenizer(str).result
+        val tokens = ActiveTokenizer(str).result
     }
 
     @Test
     @DisplayName("Test - Parser")
     fun testParser() {
         val str = "1 + a * 3.3 ^ 中文变量 // 32 - log2(4.0, c6\$_) % ハルカ"
-        val tokens = STokenizer(str).result
-        val tree = SParser(tokens).result
+        val tokens = ActiveTokenizer(str).result
+        val tree = Parser(tokens).result
     }
 
     @Test
     @DisplayName("Test - CodeGenerator")
     fun testCodeGenerator() {
         val str = "1 + a * 3.3 ^ 中文变量 // 32 - log2(4.0, c6\$_) % ハルカ"
-        val tokens = STokenizer(str).result
-        val tree = SParser(tokens).result
-        val impl = SCodeGenerator(tree).result
+        val tokens = ActiveTokenizer(str).result
+        val tree = Parser(tokens).result
+        val impl = CodeGenerator(tree).result
     }
 
     @Test
     @DisplayName("Test - ExprEvaluate")
     fun testExprEvaluate() {
         val str = "1 + a * 3.0 ^ 中文变量 // 32 - log2(c6\$_) % ハルカ"
-        val tokens = STokenizer(str).result
-        val tree = SParser(tokens).result
-        val impl = SCodeGenerator(tree).result
-        val ctx = SContext.of(
+        val tokens = ActiveTokenizer(str).result
+        val tree = Parser(tokens).result
+        val impl = CodeGenerator(tree).result
+        val ctx = ContextImpl.of(
             "a" to 2.0,
             "中文变量" to 3.0,
             "c6\$_" to 16.0,

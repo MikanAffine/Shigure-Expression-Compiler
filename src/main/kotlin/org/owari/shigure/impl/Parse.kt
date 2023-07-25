@@ -1,8 +1,4 @@
-package org.owari.shigure.parse
-
-import org.owari.shigure.ast.*
-import org.owari.shigure.tokenize.STokenStream
-import org.owari.shigure.tokenize.STokenType
+package org.owari.shigure.impl
 
 /**
  * @author Mochizuki Haruka
@@ -23,17 +19,16 @@ import org.owari.shigure.tokenize.STokenType
  * Power ::= Unary | Unary '^' Power // <right-assoc>
  * Unary ::= ('+' | '-')? Primary
  * Primary ::= '(' AddSub ')' | Number | Var | FnCall
- * FnCall ::= FnName AddSub (',' AddSub)*  ')'
+ * FnCall ::= FnName '(' AddSub (',' AddSub)*  ')'
  */
-class SParser(private val tks: STokenStream) {
+class Parser(private val tkz: PassiveTokenizer) {
     val result by lazy(this::parse)
 
     private val usedVars = mutableSetOf<String>()
-    private val usedFns = mutableSetOf<String>()
 
-    fun parse(): SRootNode {
-        tks.reset()
-        return SRootNode(parseAddSub(), usedVars.toList(), usedFns.toList())
+    fun parse(): SyntaxTree {
+        tkz.reset()
+        return SyntaxTree(parseAddSub(), usedVars.toList(), usedFns.toList())
     }
 
     /**
@@ -47,13 +42,13 @@ class SParser(private val tks: STokenStream) {
      *  /\
      * 1 2
      */
-    private fun parseAddSub(): SExprNode {
+    private fun parseAddSub(): Node {
         val lhs = parseMulDivMod()
         var result = lhs
-        while(tks.test(STokenType.ADD) || tks.test(STokenType.SUB)) {
+        while(tks.test(TokenType.ADD) || tks.test(TokenType.SUB)) {
             val op = when {
-                tks.testAndSkip(STokenType.ADD) -> SExprOperator.ADD
-                tks.testAndSkip(STokenType.SUB) -> SExprOperator.SUB
+                tks.testAndSkip(TokenType.ADD) -> Operators.ADD
+                tks.testAndSkip(TokenType.SUB) -> Operators.SUB
                 else -> throw RuntimeException("unreachable")
             }
             val rhs = parseMulDivMod()
@@ -62,15 +57,16 @@ class SParser(private val tks: STokenStream) {
         return result
     }
 
-    private fun parseMulDivMod(): SExprNode {
+    private fun parseMulDivMod(): Node {
         val lhs = parsePower()
         var result = lhs
-        while(tks.test(STokenType.MUL) || tks.test(STokenType.DIV) || tks.test(STokenType.DIVFLOOR) || tks.test(STokenType.MOD)) {
+        while(tks.test(TokenType.MUL) || tks.test(TokenType.DIV) || tks.test(TokenType.DIVFLOOR) || tks.test(
+                TokenType.MOD)) {
             val op = when {
-                tks.testAndSkip(STokenType.MUL) -> SExprOperator.MUL
-                tks.testAndSkip(STokenType.DIV) -> SExprOperator.DIV
-                tks.testAndSkip(STokenType.DIVFLOOR) -> SExprOperator.DIVFLOOR
-                tks.testAndSkip(STokenType.MOD) -> SExprOperator.MOD
+                tks.testAndSkip(TokenType.MUL) -> Operators.MUL
+                tks.testAndSkip(TokenType.DIV) -> Operators.DIV
+                tks.testAndSkip(TokenType.DIVFLOOR) -> Operators.FLOORDIV
+                tks.testAndSkip(TokenType.MOD) -> Operators.MOD
                 else -> throw RuntimeException("unreachable")
             }
             val rhs = parsePower()
@@ -79,9 +75,9 @@ class SParser(private val tks: STokenStream) {
         return result
     }
 
-    private fun parsePower(): SExprNode {
+    private fun parsePower(): Node {
         val lhs = parseUnary()
-        return if (tks.testAndSkip(STokenType.POW)) SBinaryExprNode(SExprOperator.POW, lhs, parsePower())
+        return if (tks.testAndSkip(TokenType.POW)) SBinaryExprNode(Operators.POW, lhs, parsePower())
         else lhs
     }
 
@@ -89,39 +85,39 @@ class SParser(private val tks: STokenStream) {
      * 解析一元运算
      * 对任何一个值, 只能用一次一元加减, 因为多次是不必要的.
      */
-    private fun parseUnary(): SExprNode {
+    private fun parseUnary(): Node {
         return when {
             // tks.testAndSkip(STokenType.ADD) -> SUnaryExprNode(SExprOperator.ADD, parsePrimary())
-            tks.testAndSkip(STokenType.ADD) -> parsePrimary() // 一元加是没有意义的, 直接跳过
-            tks.testAndSkip(STokenType.SUB) -> SUnaryExprNode(SExprOperator.SUB, parsePrimary())
+            tks.testAndSkip(TokenType.ADD) -> parsePrimary() // 一元加是没有意义的, 直接跳过
+            tks.testAndSkip(TokenType.SUB) -> SUnaryExprNode(Operators.SUB, parsePrimary())
             else -> parsePrimary()
         }
     }
 
-    private fun parsePrimary(): SExprNode {
+    private fun parsePrimary(): Node {
         return when {
-            tks.testAndSkip(STokenType.LPAREN) -> {
+            tks.testAndSkip(TokenType.LPAREN) -> {
                 val expr = parseAddSub()
-                tks.expect(STokenType.RPAREN)
+                tks.expect(TokenType.RPAREN)
                 expr
             }
-            tks.test(STokenType.NUMBER) -> SConstNumNode(tks.expect(STokenType.NUMBER).text)
-            tks.test(STokenType.ID) -> {
+            tks.test(TokenType.NUMBER) -> SConstNumNode(tks.expect(TokenType.NUMBER).text)
+            tks.test(TokenType.ID) -> {
                 usedVars.add(tks.peek().text)
-                SVarAccessNode(tks.expect(STokenType.ID).text)
+                SVarAccessNode(tks.expect(TokenType.ID).text)
             }
-            tks.test(STokenType.FNCALL) -> parseFnCall()
+            tks.test(TokenType.FNCALL) -> parseFnCall()
             else -> throw IllegalStateException("Unexpected Token: ${tks.peek()}")
         }
     }
 
     private fun parseFnCall(): SFnCallNode {
-        val name = tks.expect(STokenType.FNCALL).text
-        val args = arrayListOf<SExprNode>()
-        tks.expect(STokenType.LPAREN)
-        if (tks.test(STokenType.RPAREN)) return SFnCallNode(name, args)
-        do args.add(parseAddSub()) while (tks.testAndSkip(STokenType.COMMA))
-        tks.expect(STokenType.RPAREN)
+        val name = tks.expect(TokenType.FNCALL).text
+        val args = arrayListOf<Node>()
+        tks.expect(TokenType.LPAREN)
+        if (tks.test(TokenType.RPAREN)) return SFnCallNode(name, args)
+        do args.add(parseAddSub()) while (tks.testAndSkip(TokenType.COMMA))
+        tks.expect(TokenType.RPAREN)
         usedFns.add(name)
         return SFnCallNode(name, args)
     }
