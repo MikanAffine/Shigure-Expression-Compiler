@@ -2,7 +2,7 @@ package org.owari.shigure.impl
 
 import org.owari.shigure.*
 
-class ContextImpl() : Context {
+class ContextImpl() : Context() {
     constructor(initVars: Map<String, Double>, initFns: Map<String, MathFunction>) : this() {
         vars += initVars
         fns += initFns
@@ -22,5 +22,4 @@ class ContextImpl() : Context {
     override fun register(funcName: String, func: MathFunction) {
         fns[funcName] = func
     }
-
 }

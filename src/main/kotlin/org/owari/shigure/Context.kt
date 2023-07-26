@@ -2,18 +2,20 @@ package org.owari.shigure
 
 import org.owari.shigure.impl.*
 
-interface Context {
-    operator fun get(name: String): Double
-    operator fun set(name: String, value: Double)
+abstract class Context {
+    abstract operator fun get(name: String): Double
+    abstract operator fun set(name: String, value: Double)
 
-    fun call(funcName: String, args: DoubleArray): Double
-    fun register(funcName: String, func: MathFunction)
+    abstract fun call(funcName: String, args: DoubleArray): Double
+    abstract fun register(funcName: String, func: MathFunction)
 
     companion object {
         fun empty() = buildContext()
         fun noBuiltin() = buildContext(false)
 
         fun of(vars: Map<String, Double>) = buildContext { setAll(vars) }
+
+        fun of(vararg vars: Pair<String, Double>) = buildContext { setAll(*vars) }
     }
 }
 
@@ -40,6 +42,9 @@ class ContextBuilder(withBuiltin: Boolean) {
     fun setAll(m: Map<String, Double>) {
         vars += m
     }
+    fun setAll(vararg pair: Pair<String, Double>) {
+        vars += pair
+    }
     fun get(name: String) = vars[name]
     fun remove(name: String) {
         vars.remove(name)
@@ -48,14 +53,18 @@ class ContextBuilder(withBuiltin: Boolean) {
     fun register(funcName: String, func: MathFunction) {
         fns[funcName] = func
     }
-    inline fun register(funcName: String, crossinline func: (DoubleArray) -> Double) {
+    inline fun register(funcName: String, noinline func: (DoubleArray) -> Double) {
         register(funcName, MathFunction(func))
     }
     fun registerAll(m: Map<String, MathFunction>) {
         fns += m
     }
-    inline fun registerAll(m: Map<String, (DoubleArray) -> Double>) {
-        registerAll(m.mapValues { (k, v) -> MathFunction(v) })
+    fun registerAll(vararg pair: Pair<String, MathFunction>) {
+        fns += pair
+    }
+    @JvmName("registerAll2")
+    inline fun registerAll(vararg pair: Pair<String, (DoubleArray) -> Double>) {
+        registerAll(*pair.map { (k, v) -> k to MathFunction(v) }.toTypedArray())
     }
     fun unregister(funcName: String) {
         fns.remove(funcName)

@@ -1,6 +1,7 @@
 package org.owari.shigure
 
-import org.owari.shigure.impl.ContextImpl
+import org.owari.shigure.impl.Assembler
+import kotlin.math.*
 
 /**
  * @author Mochizuki Haruka
@@ -8,14 +9,15 @@ import org.owari.shigure.impl.ContextImpl
  */
 object Shigure {
     @JvmStatic
-    fun eval(source: String) = SimpleExpression(source).eval(ContextImpl())
+    val defaultAssembler = Assembler()
+    private val exprMap = hashMapOf<String, Expression>()
 
     @JvmStatic
-    fun eval(source: String, ctx: ContextImpl) = SimpleExpression(source).eval(ctx)
+    inline fun eval(source: String) = eval(source, Context.empty())
 
     @JvmStatic
-    fun createExpr(source: String) = SimpleExpression(source)
+    fun eval(source: String, ctx: Context): Double = exprMap.getOrPut(source) { Expression.of(source) }.invoke(ctx)
 
     @JvmStatic
-    fun compile(source: String) = SimpleExpression(source).also(SimpleExpression::compileNow)
+    fun createExpr(source: String, compileNow: Boolean = false) = Expression.of(source).also { if(compileNow) it.compile() }
 }

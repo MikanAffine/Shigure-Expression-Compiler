@@ -7,8 +7,8 @@ import kotlin.random.Random
 val RANDOM_GENERATOR = Random(System.currentTimeMillis() xor System.nanoTime())
 
 // 内置变量
-val PI = Math.PI
-val E = Math.E
+const val PI = Math.PI
+const val E = Math.E
 val RADIAN_CONVERT_RATIO = Math.toRadians(1.0)
 val GOLDEN_RATIO = (1 + sqrt(5.0)) / 2
 
@@ -91,6 +91,9 @@ val builtinVariables = mapOf(
 )
 
 val builtinFunctions = mapOf(
+    "zero" to ZERO,
+    "one" to ONE,
+
     "abs" to ABS,
     "sign" to SIGN,
 
