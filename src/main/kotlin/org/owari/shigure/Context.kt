@@ -36,6 +36,9 @@ class ContextBuilder(withBuiltin: Boolean) {
         }
     }
 
+    inline fun set(name: String, value: Int) {
+        set(name, value.toDouble())
+    }
     fun set(name: String, value: Double) {
         vars[name] = value
     }

@@ -17,7 +17,7 @@ object Benchmarks {
         val start = System.currentTimeMillis()
         block()
         val end = System.currentTimeMillis()
-        println("[$prefix] Elapsed time: ${end - start}")
+        println("[$prefix] Elapsed time: ${end - start} ms")
     }
 
     private const val simpleExpr = "1 * 3 + 4 ^ 2"
@@ -79,12 +79,11 @@ object Benchmarks {
             Interpreter.eval(code, ctx)
         }
 
-        val start = System.currentTimeMillis()
-        repeat(100_000_000) {
-            Interpreter.eval(code, ctx)
+        timeTrack("Interpreted Eval 100M") {
+            repeat(100_000_000) {
+                Interpreter.eval(code, ctx)
+            }
         }
-        val end = System.currentTimeMillis()
-        println("InterpretedEval 100M: Elapsed time: ${end - start}ms")
     }
 
     @Test
@@ -95,12 +94,11 @@ object Benchmarks {
             expr.invoke(ctx)
         }
 
-        val start = System.currentTimeMillis()
-        repeat(100_000_000) {
-            expr.invoke(ctx)
+        timeTrack("Mixed Eval 100M") {
+            repeat(100_000_000) {
+                expr.invoke(ctx)
+            }
         }
-        val end = System.currentTimeMillis()
-        println("MixedEval 100M: Elapsed time: ${end - start}ms")
     }
 
     @Test
@@ -111,12 +109,11 @@ object Benchmarks {
         repeat(1_000_000) {
             parser.parse()
         }
-        val start = System.currentTimeMillis()
-        repeat(1_000_000) {
-            parser.parse()
+        timeTrack("Tokenize + Parse 1M") {
+            repeat(1_000_000) {
+                parser.parse()
+            }
         }
-        val end = System.currentTimeMillis()
-        println("Tokenize + Parse 1M: Elapsed time: ${end - start}ms")
     }
 
     @Test
@@ -127,11 +124,10 @@ object Benchmarks {
         repeat(1_000_000) {
             val cg = CodeGenerator(code, a.newClassName()).generate()
         }
-        val start = System.currentTimeMillis()
-        repeat(1_000_000) {
-            val cg = CodeGenerator(code, a.newClassName()).generate()
+        timeTrack("CodeGenerate 1M") {
+            repeat(1_000_000) {
+                val cg = CodeGenerator(code, a.newClassName()).generate()
+            }
         }
-        val end = System.currentTimeMillis()
-        println("CodeGenerate 1M: Elapsed time: ${end - start}ms")
     }
 }
