@@ -1,5 +1,5 @@
 # Shigure Expression Compiler
-![Chinese Version here](README.md)
+[Chinese Version here](README.md)
 
 ## Shigure Expression Compiler
 
@@ -30,3 +30,15 @@ __In the interpretation mode, the bytecode interpreter also has good performance
 ```
 
 #### Use it now!
+
+[![](https://jitpack.io/v/KouyouX/Shigure-Expression-Compiler.svg)](https://jitpack.io/#KouyouX/Shigure-Expression-Compiler)
+
+```groovy
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.KouyouX:Shigure-Expression-Compiler:v1.0.1'
+}
+```

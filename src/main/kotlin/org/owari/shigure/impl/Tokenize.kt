@@ -112,8 +112,6 @@ object TokenizeUtil {
  * @since 1.0 - release
  *
  * Passive Tokenizer
- *
- * Number token 本身就包含了符号部分, 因为我们已经知道 pos/neg 运算对单纯的数字有什么作用了.
  */
 class Tokenizer(source: String) {
     private val src: CharArray = source.toCharArray()
@@ -153,30 +151,11 @@ class Tokenizer(source: String) {
             }
             '+' -> {
                 skip()
-                return if (src[offset].isNumber()) {
-                    val start = offset
-                    do skip() while (hasMore() && peek().isNumber())
-                    if (hasMore() && peek() == '.') {
-                        skip()
-                        do skip() while (hasMore() && peek().isNumber())
-                    }
-                    Token.number(String(src, start, offset - start))
-                } else Token.ADD
+                return Token.ADD
             }
             '-' -> {
-                return if (src[offset].isNumber()) {
-                    val start = offset
-                    skip()
-                    do skip() while (hasMore() && peek().isNumber())
-                    if (hasMore() && peek() == '.') {
-                        skip()
-                        do skip() while (hasMore() && peek().isNumber())
-                    }
-                    Token.number(String(src, start, offset - start))
-                } else {
-                    skip()
-                    Token.SUB
-                }
+                skip()
+                return Token.SUB
             }
             '*' -> {
                 skip()

@@ -1,5 +1,7 @@
 package org.owari.shigure.impl
 
+import org.owari.shigure.Shigure
+
 /**
  * @author Mochizuki Haruka
  * @since 1.0 - release

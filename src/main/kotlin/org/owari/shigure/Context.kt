@@ -10,19 +10,22 @@ abstract class Context {
     abstract fun register(funcName: String, func: MathFunction)
 
     companion object {
+        @JvmStatic
         fun empty() = buildContext()
-        fun noBuiltin() = buildContext(false)
+        @JvmStatic
+        fun noBuiltin() = buildContext(noThrow = true, withBuiltin = false)
 
+        @JvmStatic
         fun of(vars: Map<String, Double>) = buildContext { setAll(vars) }
-
+        @JvmStatic
         fun of(vararg vars: Pair<String, Double>) = buildContext { setAll(*vars) }
     }
 }
 
-fun buildContext(withBuiltin: Boolean = true) = ContextBuilder(withBuiltin).build()
-fun buildContext(withBuiltin: Boolean = true, init: ContextBuilder.() -> Unit) = ContextBuilder(withBuiltin).apply(init).build()
+fun buildContext(noThrow: Boolean = false, withBuiltin: Boolean = true) = ContextBuilder(noThrow, withBuiltin).build()
+fun buildContext(noThrow: Boolean = false, withBuiltin: Boolean = true, init: ContextBuilder.() -> Unit) = ContextBuilder(noThrow, withBuiltin).apply(init).build()
 
-class ContextBuilder(withBuiltin: Boolean) {
+class ContextBuilder(val noThrow: Boolean, withBuiltin: Boolean) {
 
     private val vars = mutableMapOf<String, Double>()
     private val fns = mutableMapOf<String, MathFunction>()
@@ -74,5 +77,5 @@ class ContextBuilder(withBuiltin: Boolean) {
     }
     fun getFunction(funcName: String) = fns[funcName]
 
-    fun build(): Context = ContextImpl(vars, fns)
+    fun build(): Context = if(noThrow) NoThrowContextImpl(vars, fns) else ContextImpl(vars, fns)
 }

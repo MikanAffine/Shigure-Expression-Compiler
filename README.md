@@ -1,6 +1,6 @@
 # 时雨 表达式编译计算引擎
 
-![English Version here](README_en.md)
+[English Version here](README_en.md)
 
 ---
 
@@ -60,6 +60,6 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.KouyouX:Shigure-Expression-Compiler:v1.0.0'
+    implementation 'com.github.KouyouX:Shigure-Expression-Compiler:v1.0.1'
 }
 ```
